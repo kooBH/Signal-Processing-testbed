@@ -14,7 +14,7 @@ git submodule update
 
 + [WAV](https://github.com/kooBH/WAV)  
 c++ WAV class for my processing modules  
-+ [STFT](https://github.com/kooBH/STFT)
++ [STFT](https://github.com/kooBH/STFT)  
 STFT(Short Time Fourier Transform), ISTFT(Inverse - Short Time Fourier Transform)  for wav,mic input and signal processing modules
 
 # Requirements
