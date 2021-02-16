@@ -21,7 +21,7 @@ else()
 endif()
 
 list(APPEND SRC
-	src/main.cpp
+	test.cpp
 	# TODO : Add path to algorithm source here.
 )
 	
