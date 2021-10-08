@@ -11,7 +11,7 @@ constexpr int frame = 512;
 constexpr int shift = 128;
 
 int main() {
-  /* Define Algortihm Class here */
+  /* Define Algorithm Class here */
 
   int length;
   WAV input;
