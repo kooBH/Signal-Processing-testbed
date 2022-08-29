@@ -47,8 +47,6 @@ int main() {
     input.Finish();
   }
 
-  delete[] buf_in;
-  delete[] buf_out;
   for (int i = 0; i < n_channel; i++)
     delete[] data[i];
   delete[] data;
