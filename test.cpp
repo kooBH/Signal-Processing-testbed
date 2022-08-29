@@ -5,27 +5,27 @@
 /* Inlcude Algorithm source here */
 
 /* Set Parameter of Input */
-constexpr int ch = 6;
-constexpr int rate = 16000;
-constexpr int frame = 512;
-constexpr int shift = 128;
+constexpr int n_channel = 6;
+constexpr int sr = 16000;
+constexpr int n_fft = 512;
+constexpr int n_hop = 128;
 
 int main() {
   /* Define Algorithm Class here */
 
   int length;
   WAV input;
-  WAV output(ch, rate);
-  STFT process(ch, frame, shift);
+  WAV output(n_channel, sr);
+  STFT process(n_channel, n_fft, n_hop);
 
-  short buf_in[ch * shift];
+  short buf_in[n_channel * n_hop];
   double** data;
-  short buf_out[ch * shift];
+  short buf_out[n_channel * n_hop];
 
-  data = new double* [ch];
-  for (int i = 0; i < ch; i++) {
-    data[i] = new double[frame + 2];
-    memset(data[i], 0, sizeof(double) * (frame + 2));
+  data = new double* [n_channel];
+  for (int i = 0; i < n_channel; i++) {
+    data[i] = new double[n_fft + 2];
+    memset(data[i], 0, sizeof(double) * (n_fft + 2));
   }
 
   for (auto path : std::filesystem::directory_iterator{"../input"}) {
@@ -35,19 +35,19 @@ int main() {
     i = "../output/"+ i.substr(9, i.length() - 9);
     output.NewFile((i).c_str());
     while (!input.IsEOF()) {
-      length = input.ReadUnit(buf_in, shift * ch);
+      length = input.ReadUnit(buf_in, n_hop * n_channel);
       process.stft(buf_in, length, data);
 
       /* Run Process here */
 
       process.istft(data, buf_out);
-      output.Append(buf_out, shift * ch);
+      output.Append(buf_out, n_hop * n_channel);
     }
     output.Finish();
     input.Finish();
   }
 
-  for (int i = 0; i < ch; i++)
+  for (int i = 0; i < n_channel; i++)
     delete[] data[i];
   delete[] data;
 
