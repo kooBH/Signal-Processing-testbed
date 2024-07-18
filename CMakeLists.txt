@@ -6,6 +6,10 @@ set(LINKLIBS)
 set(COMPILE_OPTION)
 set(SRC)
 set(INCL)
+
+include(${CMAKE_CURRENT_LIST_DIR}/lib/RtAudioWrapper/RtAudio.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/lib/WAV/WAV.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/lib/STFT/cpp/STFT_cpp.cmake)
   
 if(NOT MSVC)
 	list(APPEND LINKLIBS
@@ -22,6 +26,8 @@ endif()
 
 list(APPEND SRC
 	test.cpp
+
+	
 	# TODO : Add path to algorithm source here.
 )
 	

@@ -1,64 +1,157 @@
+#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_DEPRECATE
+
+#define _CRTDBG_MAP_ALLOC
+
+#include <stdio.h>
+#include <time.h>
+#include <string.h>
+#include <crtdbg.h>
+
 #include "STFT.h"
 #include "WAV.h"
+#include "RtInput.h"
 
-#include <time.h>
-#include <string>
-#include <filesystem>
-/* Inlcude Algorithm source here */
 
-/* Set Parameter of Input */
-constexpr int n_channel = 6;
-constexpr int sr = 16000;
-constexpr int n_fft = 512;
-constexpr int n_hop = 128;
+// WAV_OR_MIC
+// 1 : wav file input
+// 0 : mic stream input
+#define WAV_OR_MIC 1
 
-int main() {
- clock_t start, end;
-	double result;
-  
-  /* Define Algorithm Class here */
-  int length;
-  WAV input;
-  WAV output(n_channel, sr);
-  STFT process(n_channel, n_fft, n_hop);
-  
-  short buf_in[n_channel * n_hop]
-  short buf_out[n_channel * n_hop];
-  
-  double** data;
-  data = new double* [n_channel];
-  for (int i = 0; i < n_channel; i++) {
-    data[i] = new double[n_fft + 2];
-    memset(data[i], 0, sizeof(double) * (n_fft + 2));
-  }
+int main(int argc, char* argv[])
+{
+	// memory leakage check
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
-  start = clock();
-  for (auto path : std::filesystem::directory_iterator{"../input"}) {
-    std::string i(path.path().string());
-    printf("processing : %s\n",i.c_str());
-    input.OpenFile(i.c_str());
-    i = "../output/"+ i.substr(9, i.length() - 9);
-    output.NewFile((i).c_str());
-    while (!input.IsEOF()) {
-      length = input.ReadUnit(buf_in, n_hop * n_channel);
-      process.stft(buf_in, length, data);
+	clock_t startTime, endTime;
 
-      /* Run Process here */
+	// Fixed parameters
+	constexpr int sr = 16000;
+	constexpr int n_fft = 512;
+	constexpr int n_hop = 128;
+	constexpr int in_channels = 4;
+	constexpr int out_channels = 1;
 
-      process.istft(data, buf_out);
-      output.Append(buf_out, n_hop * n_channel);
-    }
-    output.Finish();
-    input.Finish();
-  }
-  
-  end = clock();
-  result = (double)(end - start) / CLOCKS_PER_SEC;
-  printf("Process time %f sec.", result);
+	/* IO */
+	// mic input [in_channels * n_hop]
+	short* buf_in = new short[in_channels * n_hop];
+	// processed output [out_channels * n_hop]
+	short* buf_out = new short[out_channels * n_hop];
 
-  for (int i = 0; i < n_channel; i++)
-    delete[] data[i];
-  delete[] data;
+	// if in_channels == out_channles, we can use same STFT object
+	STFT process(in_channels, n_fft, n_hop);
+	STFT process(out_channels, n_fft, n_hop);
 
-  return 0;
-}
+	double** data;
+	data = new double* [in_channels];
+	for (int i = 0; i < in_channels; i++) {
+		data[i] = new double[n_fft + 2];
+		memset(data[i], 0, sizeof(double) * (n_fft + 2));
+	}
+
+
+	startTime = clock();
+
+	/********   IO   ******/
+#if WAV_OR_MIC
+	// WAV IO
+	WAV input;
+
+	input.OpenFile("input.wav");
+#else
+
+	// Find Device by Name
+	const char* deviceName = "mpWAV";
+	int device = 0;
+
+	RtAudio::DeviceInfo info;
+	RtAudio adc;
+	int	nDevice = adc.getDeviceCount();
+	std::cout << "api : " << adc.getCurrentApi() << "\n";
+	if (nDevice < 1) {
+		std::cout << "\nNo audio devices found!\n";
+		exit(-1);
+		return 0;
+	}
+	else {
+		std::cout << "Total Device : " << nDevice << "\n\n";
+		for (int i = 0; i < nDevice; i++) {
+			info = adc.getDeviceInfo(i);
+			if (info.name.find(deviceName) != std::string::npos) {
+				if (info.inputChannels >= 1) {
+					std::cout << "device = " << i << "\n";
+					std::cout << "name = " << info.name << "\n";
+					std::cout << "maximum input channels = " << info.inputChannels << "\n";
+					std::cout << "maximum output channels = " << info.outputChannels << "\n";
+					std::cout << "Samplerates : ";
+					for (auto sr : info.sampleRates)
+						std::cout << sr << " ";
+					std::cout << "\n";
+					std::cout << "----------------------------------------------------------" << "\n";
+					device = i;
+					break;
+				}
+			}
+		}
+	}
+	RtInput input(device, raw_channels, sr, n_hop, n_fft, n_hop);
+
+	// Save inputs for debugging
+	WAV raw(raw_channels, sr);
+	raw.NewFile("raw.wav");
+
+#endif
+
+	WAV output(out_channels, sr);
+	output.NewFile("output.wav");
+
+#if WAV_OR_MIC
+	while (!input.IsEOF()) {
+		input.ReadUnit(buf_in, n_hop * in_channels);
+#else
+
+	input.Start();
+	while (input.IsRunning()) {
+
+		if (input.data.stock.load() >= n_hop * raw_channels)
+			input.GetBuffer(buf_in);
+		else
+			continue;
+
+#endif
+		//----- processing ------------//
+		process.stft(buf_in, n_hop*in_channels, data);
+
+		// Run algorithm here.
+
+		process.istft(data, buf_out);
+		output.Append(buf_out, out_channels*n_hop);
+
+
+#if !WAV_OR_MIC
+		raw.Append(buf_in, raw_channels * n_hop);
+#endif
+	}
+
+	endTime = clock();
+
+#if WAV_OR_MIC
+	input.Finish();
+
+#else
+	input.Stop();
+
+#endif
+	output.Finish();
+
+	printf("\n\nComplete. Execution Time is %.1f sec\n", (float)(endTime - startTime) / 1000);
+
+	for (int i = 0; i < in_channels; i++)
+		delete[] data[i];
+	delete[] data;
+	delete[] buf_in;
+	delete[] buf_out;
+
+
+	return 0;
+	}

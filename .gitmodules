@@ -4,3 +4,6 @@
 [submodule "lib/STFT"]
 	path = lib/STFT
 	url = https://github.com/koobh/STFT
+[submodule "lib/RtAudioWrapper"]
+	path = lib/RtAudioWrapper
+	url = https://github.com/kooBH/RtAudioWrapper.git
